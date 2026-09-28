@@ -4,7 +4,6 @@ import pymupdf
 import win32con
 import win32print
 import win32ui
-import win32gui
 from PIL import ImageWin
 
 PAPER_A4 = 9
@@ -18,7 +17,7 @@ class WindowsPrintEngine:
         self.printer_name = printer_name
         self.spool_wait_seconds = spool_wait_seconds
 
-    def _get_devmode(self, paper: str, duplex: bool, edge: str):
+    def _get_devmode(self, paper: str, duplex: bool, edge: str, landscape: bool):
         handle = win32print.OpenPrinter(self.printer_name)
         try:
             info = win32print.GetPrinter(handle, 2)
@@ -28,14 +27,15 @@ class WindowsPrintEngine:
             elif paper == "Legal":
                 devmode.PaperSize = PAPER_LEGAL
             devmode.Duplex = DMDUP_SIMPLEX if not duplex else (DMDUP_HORIZONTAL if edge == "short" else DMDUP_VERTICAL)
-            devmode.Fields |= win32con.DM_PAPERSIZE | win32con.DM_DUPLEX
+            devmode.Orientation = win32con.DMORIENT_LANDSCAPE if landscape else win32con.DMORIENT_PORTRAIT
+            devmode.Fields |= win32con.DM_PAPERSIZE | win32con.DM_DUPLEX | win32con.DM_ORIENTATION
             return devmode
         finally:
             win32print.ClosePrinter(handle)
 
     def _printer_dc(self, devmode):
         dc = win32ui.CreateDC()
-        dc.CreatePrinterDC(self.printer_name)
+        dc.CreateDC("WINSPOOL", self.printer_name, None, devmode)
         return dc
 
     def print_pdf(self, pdf_path: Path, paper: str, duplex: bool, edge: str, copies: int = 1):
@@ -44,29 +44,24 @@ class WindowsPrintEngine:
             orientations = {"landscape" if p.rect.width > p.rect.height else "portrait" for p in doc}
             if len(orientations) > 1:
                 raise ValueError(f"Mixed page orientation is not supported: {pdf_path.name}")
-
-            effective_edge = edge
-            if effective_edge == "auto":
-                effective_edge = "short" if "landscape" in orientations else "long"
-
-            devmode = self._get_devmode(paper, duplex, effective_edge)
+            landscape = "landscape" in orientations
+            effective_edge = edge if edge != "auto" else ("short" if landscape else "long")
+            devmode = self._get_devmode(paper, duplex, effective_edge, landscape)
             dc = self._printer_dc(devmode)
             try:
                 dc.SetMapMode(win32con.MM_TEXT)
                 dc.StartDoc(str(pdf_path))
-                for copy_no in range(copies):
+                for _ in range(copies):
                     for page in doc:
                         rect = page.rect
-                        landscape = rect.width > rect.height
                         dc.StartPage()
                         pw = dc.GetDeviceCaps(win32con.HORZRES)
                         ph = dc.GetDeviceCaps(win32con.VERTRES)
                         scale = min(pw / rect.width, ph / rect.height)
-                        matrix = pymupdf.Matrix(scale, scale)
-                        pix = page.get_pixmap(matrix=matrix, alpha=False)
+                        pix = page.get_pixmap(matrix=pymupdf.Matrix(scale, scale), alpha=False)
                         img = ImageWin.Dib(pix.tobytes("ppm"))
-                        left = int((pw - pix.width) / 2)
-                        top = int((ph - pix.height) / 2)
+                        left = max(0, int((pw - pix.width) / 2))
+                        top = max(0, int((ph - pix.height) / 2))
                         img.draw(dc.GetHandleOutput(), (left, top, left + pix.width, top + pix.height))
                         dc.EndPage()
                 dc.EndDoc()
@@ -74,7 +69,6 @@ class WindowsPrintEngine:
                 dc.DeleteDC()
         finally:
             doc.close()
-        time.sleep(0.5)
         self._wait_for_queue_clear()
 
     def _wait_for_queue_clear(self):
