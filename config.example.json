@@ -1,0 +1,1 @@
+{"ollama_url":"http://127.0.0.1:11434","model":"qwen3:1.7b","allowed_roots":["C:/Users/YOUR_USER/Downloads/PrintTest"],"max_files_per_job":100,"printer_name":"Brother HL-L2400D","spool_wait_seconds":120,"llm_timeout_seconds":120,"require_confirmation":false}
