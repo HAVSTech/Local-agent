@@ -1,1 +1,21 @@
-{"ollama_url":"http://127.0.0.1:11434","model":"qwen3:1.7b","allowed_roots":["C:/Users/YOUR_USER/Downloads/PrintTest"],"max_files_per_job":100,"printer_name":"Brother HL-L2400D","spool_wait_seconds":120,"llm_timeout_seconds":120,"require_confirmation":false}
+{
+  "ollama_url": "http://127.0.0.1:11434",
+  "model": "qwen3:1.7b",
+  "allowed_roots": [
+    "C:/Users/YOUR_USER/Downloads/PrintTest"
+  ],
+  "max_files_per_job": 100,
+  "printer_name": "Brother HL-L2400D",
+  "spool_wait_seconds": 120,
+  "llm_timeout_seconds": 120,
+  "require_confirmation": false,
+  "voice_stt_model": "tiny.en",
+  "voice_stt_device": "cpu",
+  "voice_stt_compute_type": "int8",
+  "voice_sample_rate": 16000,
+  "voice_max_record_seconds": 15,
+  "voice_silence_seconds": 1.4,
+  "voice_silence_threshold": 0.012,
+  "voice_tts_rate": 175,
+  "voice_temp_wav": ".voice_input.wav"
+}
