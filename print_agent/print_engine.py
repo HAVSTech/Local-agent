@@ -4,6 +4,7 @@ import pymupdf
 import win32con
 import win32print
 import win32ui
+import win32gui
 from PIL import ImageWin
 
 PAPER_A4 = 9
@@ -49,17 +50,21 @@ class WindowsPrintEngine:
             win32print.ClosePrinter(handle)
 
     def _printer_dc(self, devmode):
-        # win32ui.CreateDC returns an initialized device context when the
-        # driver name, printer name, output and DEVMODE are supplied.
-        # Calling CreateDC() first and then dc.CreateDC() is invalid for
-        # pywin32's PyCDC object and causes "'PyCDC' object has no attribute
-        # CreateDC".
-        return win32ui.CreateDC(
+        # pywin32's win32ui.CreateDC() takes no arguments. Windows' GDI
+        # CreateDC API is exposed through win32gui.CreateDC(), which accepts
+        # the printer driver, printer name, output and DEVMODE.
+        handle = win32gui.CreateDC(
             "WINSPOOL",
             self.printer_name,
             None,
             devmode,
         )
+        if not handle:
+            raise RuntimeError(
+                f"Windows could not create a printer device context for "
+                f"{self.printer_name!r}"
+            )
+        return win32ui.CreateDCFromHandle(handle)
 
     def print_pdf(
         self,
